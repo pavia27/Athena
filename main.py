@@ -19,7 +19,7 @@ class ResearchResponse(BaseModel):
     sources: list[str]
     tools_used: list[str]
 
-llm = ChatOpenAI(model="gpt-4.1")
+llm = ChatOpenAI(model="gpt-5")
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
 
