@@ -16,7 +16,7 @@ save_tool = Tool(
     description="Save structured research data to a text file"
 )
 
-search = DuckDuckGoSearchRun()
+search_tool = DuckDuckGoSearchRun()
 
 pubmed_tool = PubmedQueryRun()
 
