@@ -45,7 +45,7 @@ agent = create_tool_calling_agent(
 
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-query = input("What can I help you research? ")
+query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with?")
 raw_response = agent_executor.invoke({"query": query})
 
 try:
