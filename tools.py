@@ -3,6 +3,7 @@ from langchain_community.tools.pubmed.tool import PubmedQueryRun
 from langchain.tools import Tool
 from datetime import datetime
 
+
 def save_to_txt(data: str, filename: str = "research_output.txt"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     formatted_text = f"--- Research Output ---\nTimestamp: {timestamp}\n\n{data}\n\n"

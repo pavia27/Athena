@@ -7,7 +7,11 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from tools import search_tool, save_tool, pubmed_tool, arxiv_tool
 
+#provide path to .env with API or 
 load_dotenv(dotenv_path='/home/mpavia/.env')
+
+#load in your own api
+#OPENAI_API_KEY="your_key_here"
 
 class ResearchResponse(BaseModel):
     topic: str
@@ -45,7 +49,7 @@ agent = create_tool_calling_agent(
 
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with?")
+query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with? ")
 raw_response = agent_executor.invoke({"query": query})
 
 try:
