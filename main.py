@@ -29,7 +29,7 @@ class ScientificResearchResponse(BaseModel):
 
 llm = ChatOpenAI(model="gpt-5")
 
-parser = PydanticOutputParser(pydantic_object=ResearchResponse)
+parser = PydanticOutputParser(pydantic_object=ScientificResearchResponse)
 
 prompt = ChatPromptTemplate.from_messages(
     [
