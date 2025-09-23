@@ -42,7 +42,8 @@ prompt = ChatPromptTemplate.from_messages(
             2. Do not simply return a list of summaries. Synthesize the information from multiple papers to form a coherent, well-structured summary of the current state of research on the topic.
             3. Identify the key findings, methodologies, and conclusions. If sources conflict, point this out.
             4. A crucial part of your role is to identify what is *not* known. Based on the literature, list the open questions or areas that require further research.
-            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation.
+            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation. This should be saved in a text file with a relvant name.
+
             
             \n{format_instructions}
             """,
