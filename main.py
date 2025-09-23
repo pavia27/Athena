@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,11 +13,19 @@ load_dotenv(dotenv_path='/home/mpavia/.env')
 #load in your own api
 #OPENAI_API_KEY="your_key_here"
 
-class ResearchResponse(BaseModel):
-    topic: str
-    summary: str
-    sources: list[str]
-    tools_used: list[str]
+class Paper(BaseModel):
+    title: str = Field(description="The title of the research paper.")
+    authors: list[str] = Field(description="The list of authors of the paper.")
+    url: str = Field(description="The URL or DOI link to the paper.")
+    summary: str = Field(description="A concise summary of the paper's abstract or key findings.")
+
+class ScientificResearchResponse(BaseModel):
+    topic: str = Field(description="The primary research topic.")
+    summary: str = Field(description="A detailed synthesis of the findings from all sources, including methodologies and conclusions.")
+    key_papers: list[Paper] = Field(description="A list of the most relevant papers found.")
+    unanswered_questions: list[str] = Field(description="A list of open questions or areas for future research identified from the literature.")
+    tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
+
 
 llm = ChatOpenAI(model="gpt-5")
 
