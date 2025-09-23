@@ -27,7 +27,7 @@ class ScientificResearchResponse(BaseModel):
     tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
 
 
-llm = ChatOpenAI(model="gpt-5")
+llm = ChatOpenAI(model="gpt-4o")
 
 parser = PydanticOutputParser(pydantic_object=ScientificResearchResponse)
 
@@ -36,9 +36,15 @@ prompt = ChatPromptTemplate.from_messages(
         (
             "system",
             """
-            You are a research assistant that will help generate a research paper.
-            Answer the user query and use neccessary tools. 
-            Wrap the output in this format and provide no other text\n{format_instructions}
+            You are an expert scientific research assistant. Your goal is to conduct thorough literature reviews.
+
+            1. Always prefer academic sources. Use the `arxiv_tool` and `pubmed_search` tools first. Use the general `search` tool only as a last resort for very recent or non-academic topics.
+            2. Do not simply return a list of summaries. Synthesize the information from multiple papers to form a coherent, well-structured summary of the current state of research on the topic.
+            3. Identify the key findings, methodologies, and conclusions. If sources conflict, point this out.
+            4. A crucial part of your role is to identify what is *not* known. Based on the literature, list the open questions or areas that require further research.
+            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation.
+            
+            \n{format_instructions}
             """,
         ),
         ("placeholder", "{chat_history}"),
