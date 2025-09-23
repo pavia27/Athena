@@ -27,7 +27,7 @@ class ScientificResearchResponse(BaseModel):
     tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
 
 
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(model="gpt-4.1") #works gpt-4o
 
 parser = PydanticOutputParser(pydantic_object=ScientificResearchResponse)
 
@@ -61,7 +61,7 @@ agent = create_tool_calling_agent(
     tools=tools
 )
 
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with? ")
 raw_response = agent_executor.invoke({"query": query})
