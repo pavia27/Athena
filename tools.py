@@ -5,9 +5,10 @@ from langchain_community.tools import DuckDuckGoSearchRun, ArxivQueryRun
 from langchain_community.tools.pubmed.tool import PubmedQueryRun
 from langchain_community.utilities import PubMedAPIWrapper
 
-def save_to_txt(data: str, filename: str ):
+def save_to_txt(data: str, filename: str = "research_output.txt"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     formatted_text = f"--- Research Output ---\nTimestamp: {timestamp}\n\n{data}\n\n"
+
     with open(filename, "a", encoding="utf-8") as f:
         f.write(formatted_text)
 
@@ -17,10 +18,10 @@ save_tool = Tool.from_function(
     description="Save structured research data to a text file. The input should be a dictionary with 'data' and 'filename' keys."
 )
 
-save_tool = Tool.from_function(
-    name="save_text_to_file",
+save_tool = Tool(
+    name = "save_text_to_file",
     func=save_to_txt,
-    description="Save structured research data to a text file. The input should be a dictionary with 'data' and 'filename' keys."
+    description="Save structured research data to a text file"
 )
 
 pubmed_api_wrapper = PubMedAPIWrapper(ncbi_api_key=os.getenv("NCBI_API_KEY"))
