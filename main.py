@@ -1,17 +1,17 @@
+import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from tools import search_tool, save_tool, pubmed_tool, arxiv_tool
+from tools import search_tool, pubmed_tool, arxiv_tool, save_to_txt
 
-#provide path to .env with API or 
+# Provide path to .env file
 load_dotenv(dotenv_path='/home/mpavia/.env')
 
 #load in your own api
-#OPENAI_API_KEY="your_key_here"
+#os.environ["OPENAI_API_KEY"] = "your_key_here"
 
 class Paper(BaseModel):
     title: str = Field(description="The title of the research paper.")
@@ -26,39 +26,45 @@ class ScientificResearchResponse(BaseModel):
     unanswered_questions: list[str] = Field(description="A list of open questions or areas for future research identified from the literature.")
     tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
 
-def display_research_summary(response: ScientificResearchResponse):
-    print("\n" + "="*80)
-    print(f"Research Report: {response.topic}")
-    print("="*80 + "\n")
+def format_research_for_file(response: ScientificResearchResponse) -> str:
+    """
+    Formats the structured research response into a clean, human-readable string.
+    This replaces the old display_research_summary function.
+    """
+    report_parts = []
+    
+    report_parts.append("="*80)
+    report_parts.append(f"Research Report: {response.topic}")
+    report_parts.append("="*80 + "\n")
 
-    print("##  Summary ##")
-    print(response.summary + "\n")
+    report_parts.append("## Summary ##")
+    report_parts.append(response.summary + "\n")
 
-    print("## Open Questions & Future Directions ##")
+    report_parts.append("## Open Questions & Future Directions ##")
     if not response.unanswered_questions:
-        print("No specific unanswered questions were identified from the literature.")
+        report_parts.append("No specific unanswered questions were identified from the literature.\n")
     else:
-        for i, question in enumerate(response.unanswered_questions, 1):
-            print(f"- {question}")
+        for question in response.unanswered_questions:
+            report_parts.append(f"- {question}")
+        report_parts.append("\n")
 
-    print("## References ##")
+    report_parts.append("## References ##")
     if not response.key_papers:
-        print("No key papers were identified.")
+        report_parts.append("No key papers were identified.\n")
     else:
         for i, paper in enumerate(response.key_papers, 1):
-            print(f"{i}. **{paper.title}**")
-            print(f"   *Authors:* {', '.join(paper.authors)}")
-            print(f"   *Link:* {paper.url}")
-            print(f"   *Summary:* {paper.summary}\n")
+            report_parts.append(f"{i}. {paper.title}")
+            report_parts.append(f"   - Authors: {', '.join(paper.authors)}")
+            report_parts.append(f"   - Link: {paper.url}")
+            report_parts.append(f"   - Summary: {paper.summary}\n")
+            
+    return "\n".join(report_parts)
 
-    print("\n" + "-"*80)
-    print(f"Tools Used: {', '.join(response.tools_used)}")
-    print("-" * 80)
-
-llm = ChatOpenAI(model="gpt-4.1") #works gpt-4o
+llm = ChatOpenAI(model="gpt-4o") # Using gpt-4o as it's a powerful and cost-effective model
 
 parser = PydanticOutputParser(pydantic_object=ScientificResearchResponse)
 
+# The agent is no longer instructed to save the file. Its job is just to return the JSON.
 prompt = ChatPromptTemplate.from_messages(
     [
         (
@@ -66,12 +72,11 @@ prompt = ChatPromptTemplate.from_messages(
             """
             You are an expert scientific research assistant. Your goal is to conduct thorough literature reviews.
 
-            1. Always prefer academic sources. Use the `arxiv_tool` and `pubmed_search` tools first. Use the general `search` tool only as a last resort for very recent or non-academic topics.
-            2. Do not simply return a list of summaries. Synthesize the information from multiple papers to form a coherent, well-structured summary of the current state of research on the topic.
+            1. Always prefer academic sources. Use the `arxiv_tool` and `pubmed_search` tools first. Use the general `search` tool only as a last resort.
+            2. Synthesize the information from multiple papers to form a coherent, well-structured summary of the current state of research on the topic.
             3. Identify the key findings, methodologies, and conclusions. If sources conflict, point this out.
-            4. A crucial part of your role is to identify what is *not* known. Based on the literature, list the open questions or areas that require further research.
-            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation. This should be saved in a text file with a relvant name.
-
+            4. Identify what is *not* known. Based on the literature, list the open questions or areas that require further research.
+            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation.
             
             \n{format_instructions}
             """,
@@ -82,7 +87,8 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(format_instructions=parser.get_format_instructions())
 
-tools = [search_tool, save_tool, pubmed_tool, arxiv_tool] 
+# The save_tool has been removed from the agent's tools.
+tools = [search_tool, pubmed_tool, arxiv_tool] 
 
 agent = create_tool_calling_agent(
     llm=llm,
@@ -99,17 +105,19 @@ try:
     output_text = raw_response.get("output")
     if "```json" in output_text:
         output_text = output_text.strip().split("```json\n")[1].split("\n```")[0]
+    
     structured_response = parser.parse(output_text)
-    display_research_summary(structured_response)
+    human_readable_report = format_research_for_file(structured_response)
+    save_to_txt(data=human_readable_report, filename="research_output.txt")
+    print("Analysis complete.")
+    print(f"   Tools used: {', '.join(structured_response.tools_used)}")
+    print("   Full report saved to 'research_output.txt'")
+
 except Exception as e:
     print("\n---")
-    print("Error parsing the response from the LLM.")
-    print(f"Error: {e}")
-    print("This usually happens when the model doesn't follow the JSON format perfectly.")
+    print("Error processing the response from the LLM.")
+    print(f"   Error: {e}")
+    print("   This may happen if the model doesn't follow the JSON format perfectly.")
     print("\nRaw LLM Output:")
     print(raw_response.get("output"))
     print("---")
-except Exception as e:
-    print("Error parsing response:", e)
-    print("Raw Response:", raw_response)
-    print("Output text:", raw_response.get("output"))
