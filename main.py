@@ -26,6 +26,34 @@ class ScientificResearchResponse(BaseModel):
     unanswered_questions: list[str] = Field(description="A list of open questions or areas for future research identified from the literature.")
     tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
 
+def display_research_summary(response: ScientificResearchResponse):
+    print("\n" + "="*80)
+    print(f"Research Report: {response.topic}")
+    print("="*80 + "\n")
+
+    print("##  Summary ##")
+    print(response.summary + "\n")
+
+    print("## Open Questions & Future Directions ##")
+    if not response.unanswered_questions:
+        print("No specific unanswered questions were identified from the literature.")
+    else:
+        for i, question in enumerate(response.unanswered_questions, 1):
+            print(f"- {question}")
+
+    print("## References ##")
+    if not response.key_papers:
+        print("No key papers were identified.")
+    else:
+        for i, paper in enumerate(response.key_papers, 1):
+            print(f"{i}. **{paper.title}**")
+            print(f"   *Authors:* {', '.join(paper.authors)}")
+            print(f"   *Link:* {paper.url}")
+            print(f"   *Summary:* {paper.summary}\n")
+
+    print("\n" + "-"*80)
+    print(f"Tools Used: {', '.join(response.tools_used)}")
+    print("-" * 80)
 
 llm = ChatOpenAI(model="gpt-4.1") #works gpt-4o
 
@@ -69,8 +97,18 @@ raw_response = agent_executor.invoke({"query": query})
 
 try:
     output_text = raw_response.get("output")
+    if "```json" in output_text:
+        output_text = output_text.strip().split("```json\n")[1].split("\n```")[0]
     structured_response = parser.parse(output_text)
-    print("Structured response:", structured_response)
+    display_research_summary(structured_response)
+except Exception as e:
+    print("\n---")
+    print("Error parsing the response from the LLM.")
+    print(f"Error: {e}")
+    print("This usually happens when the model doesn't follow the JSON format perfectly.")
+    print("\nRaw LLM Output:")
+    print(raw_response.get("output"))
+    print("---")
 except Exception as e:
     print("Error parsing response:", e)
     print("Raw Response:", raw_response)
