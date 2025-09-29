@@ -41,6 +41,7 @@ search_agent = create_agent(
         ("system", "Use the provided tools to search for papers. Return a list of the most relevant papers with their titles, authors, URLs, and summaries."),
         ("system", "You must return a list of `Paper` objects. You can return an empty list if no relevant papers are found."),
         ("human", "{query}"),
+        ("placeholder", "{agent_scratchpad}")
     ]),
     tools=all_tools
 )
