@@ -1,17 +1,17 @@
 import os
 from dotenv import load_dotenv
+from typing import List, TypedDict
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from tools import search_tool, pubmed_tool, arxiv_tool, save_to_txt
+from langgraph.graph import StateGraph, END
 
-# Provide path to .env file
+from tools import all_tools, save_to_txt
+
+# Load environment variables for API keys
 load_dotenv(dotenv_path='/home/mpavia/.env')
-
-#load in your own api
-#os.environ["OPENAI_API_KEY"] = "your_key_here"
+# os.environ["OPENAI_API_KEY"] = "your_key_here" # Uncomment and replace if not using .env
 
 class Paper(BaseModel):
     title: str = Field(description="The title of the research paper.")
@@ -19,105 +19,123 @@ class Paper(BaseModel):
     url: str = Field(description="The URL or DOI link to the paper.")
     summary: str = Field(description="A concise summary of the paper's abstract or key findings.")
 
-class ScientificResearchResponse(BaseModel):
-    topic: str = Field(description="The primary research topic.")
-    summary: str = Field(description="A detailed synthesis of the findings from all sources, including methodologies and conclusions.")
-    key_papers: list[Paper] = Field(description="A list of the most relevant papers found.")
-    unanswered_questions: list[str] = Field(description="A list of open questions or areas for future research identified from the literature.")
-    tools_used: list[str] = Field(description="The list of tools that were used to generate this response.")
+class ResearchState(TypedDict):
+    query: str 
+    papers: List[Paper] 
+    analysis: str  
+    critique: str 
+    report: str
 
-def format_research_for_file(response: ScientificResearchResponse) -> str:
-    """
-    Formats the structured research response into a clean, human-readable string.
-    This replaces the old display_research_summary function.
-    """
-    report_parts = []
+llm = ChatOpenAI(model="gpt-4o")
+
+def create_agent(prompt: ChatPromptTemplate, tools: list = None):
+    if tools is None:
+        return prompt | llm
     
-    report_parts.append("="*80)
-    report_parts.append(f"Research Report: {response.topic}")
-    report_parts.append("="*80 + "\n")
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    return AgentExecutor(agent=agent, tools=tools)
 
-    report_parts.append("## Summary ##")
-    report_parts.append(response.summary + "\n")
-
-    report_parts.append("## Open Questions & Future Directions ##")
-    if not response.unanswered_questions:
-        report_parts.append("No specific unanswered questions were identified from the literature.\n")
-    else:
-        for question in response.unanswered_questions:
-            report_parts.append(f"- {question}")
-        report_parts.append("\n")
-
-    report_parts.append("## References ##")
-    if not response.key_papers:
-        report_parts.append("No key papers were identified.\n")
-    else:
-        for i, paper in enumerate(response.key_papers, 1):
-            report_parts.append(f"{i}. {paper.title}")
-            report_parts.append(f"   - Authors: {', '.join(paper.authors)}")
-            report_parts.append(f"   - Link: {paper.url}")
-            report_parts.append(f"   - Summary: {paper.summary}\n")
-            
-    return "\n".join(report_parts)
-
-llm = ChatOpenAI(model="gpt-4o") # Using gpt-4o as it's a powerful and cost-effective model
-
-parser = PydanticOutputParser(pydantic_object=ScientificResearchResponse)
-
-# The agent is no longer instructed to save the file. Its job is just to return the JSON.
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """
-            You are an expert scientific research assistant. Your goal is to conduct thorough literature reviews.
-
-            1. Always prefer academic sources. Use the `arxiv_tool` and `pubmed_search` tools first. Use the general `search` tool only as a last resort.
-            2. Synthesize the information from multiple papers to form a coherent, well-structured summary of the current state of research on the topic.
-            3. Identify the key findings, methodologies, and conclusions. If sources conflict, point this out.
-            4. Identify what is *not* known. Based on the literature, list the open questions or areas that require further research.
-            5. You must wrap your final response in the provided JSON format. Do not provide any other text or explanation.
-            
-            \n{format_instructions}
-            """,
-        ),
-        ("placeholder", "{chat_history}"),
+search_agent = create_agent(
+    prompt=ChatPromptTemplate.from_messages([
+        ("system", "You are an expert research assistant. Your goal is to find relevant scientific papers for a given query."),
+        ("system", "Use the provided tools to search for papers. Return a list of the most relevant papers with their titles, authors, URLs, and summaries."),
+        ("system", "You must return a list of `Paper` objects. You can return an empty list if no relevant papers are found."),
         ("human", "{query}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ]
-).partial(format_instructions=parser.get_format_instructions())
-
-# The save_tool has been removed from the agent's tools.
-tools = [search_tool, pubmed_tool, arxiv_tool] 
-
-agent = create_tool_calling_agent(
-    llm=llm,
-    prompt=prompt,
-    tools=tools
+    ]),
+    tools=all_tools
 )
 
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
+def search_node(state: ResearchState):
+    print("--- SEARCHING ---")
+    query = state["query"]
+    result = search_agent.invoke({"query": query})
+    papers_list = result.get('output', [])
+    print(f"--- FOUND {len(papers_list)} PAPERS ---")
+    return {"papers": papers_list}
 
-query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with? ")
-raw_response = agent_executor.invoke({"query": query})
+analysis_agent = create_agent(
+    prompt=ChatPromptTemplate.from_messages([
+        ("system", "You are a scientific analysis expert. Your role is to synthesize findings from a list of research papers."),
+        ("system", "Read through the summaries of the provided papers and create a cohesive analysis."),
+        ("system", "Your analysis should highlight the key findings, methodologies, and main conclusions. Do not add new information or critique the work yet."),
+        ("human", "Here are the papers: {papers}"),
+    ])
+)
 
-try:
-    output_text = raw_response.get("output")
-    if "```json" in output_text:
-        output_text = output_text.strip().split("```json\n")[1].split("\n```")[0]
+def analysis_node(state: ResearchState):
+    """The 'Analysis' node. Summarizes and synthesizes the papers."""
+    print("--- ANALYZING ---")
+    if not state["papers"]:
+        return {"analysis": "No papers were found to analyze."}
     
-    structured_response = parser.parse(output_text)
-    human_readable_report = format_research_for_file(structured_response)
-    save_to_txt(data=human_readable_report, filename="research_output.txt")
-    print("Analysis complete.")
-    print(f"   Tools used: {', '.join(structured_response.tools_used)}")
-    print("   Full report saved to 'research_output.txt'")
+    result = analysis_agent.invoke({"papers": state["papers"]})
+    return {"analysis": result.content}
 
-except Exception as e:
-    print("\n---")
-    print("Error processing the response from the LLM.")
-    print(f"   Error: {e}")
-    print("   This may happen if the model doesn't follow the JSON format perfectly.")
-    print("\nRaw LLM Output:")
-    print(raw_response.get("output"))
-    print("---")
+critique_agent = create_agent(
+    prompt=ChatPromptTemplate.from_messages([
+        ("system", "You are a research critic. Your job is to identify gaps and unanswered questions from a body of research."),
+        ("system", "Based on the provided analysis of research papers, identify the following:"),
+        ("system", "- Gaps in the current research."),
+        ("system", "- Contradictions or conflicting findings between papers."),
+        ("system", "- Open questions or areas that require future investigation."),
+        ("human", "Here is the analysis of the research: {analysis}"),
+    ])
+)
+
+def critique_node(state: ResearchState):
+    """The 'Critique' node. Identifies gaps and future directions."""
+    print("--- CRITIQUING ---")
+    result = critique_agent.invoke({"analysis": state["analysis"]})
+    return {"critique": result.content}
+
+writer_agent = create_agent(
+    prompt=ChatPromptTemplate.from_messages([
+        ("system", "You are a scientific writer. Your task is to compose a final, comprehensive research report in a clear, human-readable format."),
+        ("system", "Use the provided analysis, critique, and list of papers to structure the report."),
+        ("system", "The report should include the following sections: a detailed summary, a section on open questions and future directions, and a list of references."),
+        ("human", "Please generate a full research report based on the following information:\n\n"
+         "## Research Topic ##\n{query}\n\n"
+         "## Synthesized Analysis ##\n{analysis}\n\n"
+         "## Identified Gaps & Future Directions ##\n{critique}\n\n"
+         "## References ##\n{papers}"),
+    ])
+)
+
+def writer_node(state: ResearchState):
+    """The 'Writer' node. Compiles all information into the final report."""
+    print("--- WRITING REPORT ---")
+    report = writer_agent.invoke({
+        "query": state["query"],
+        "analysis": state["analysis"],
+        "critique": state["critique"],
+        "papers": state["papers"]
+    })
+    return {"report": report.content}
+
+graph = StateGraph(ResearchState)
+
+graph.add_node("search", search_node)
+graph.add_node("analyze", analysis_node)
+graph.add_node("critique", critique_node)
+graph.add_node("write", writer_node)
+
+graph.set_entry_point("search")
+graph.add_edge("search", "analyze")
+graph.add_edge("analyze", "critique")
+graph.add_edge("critique", "write")
+graph.add_edge("write", END)
+
+research_graph = graph.compile()
+
+if __name__ == "__main__":
+    query = input("Hello, I'm Athena, your AI research assistant. What topic can I help you with today? ")
+    
+    final_state = None
+    for state_update in research_graph.stream({"query": query}):
+        last_completed_node = list(state_update.keys())[-1]
+        print(f"Finished '{last_completed_node}' step.")
+        final_state = state_update[last_completed_node]
+
+    final_report = final_state.get("report", "No report was generated.")
+    
+    save_to_txt(data=final_report, filename_prefix="research_report")
