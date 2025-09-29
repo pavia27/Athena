@@ -5,33 +5,22 @@ from langchain_community.tools import DuckDuckGoSearchRun, ArxivQueryRun
 from langchain_community.tools.pubmed.tool import PubmedQueryRun
 from langchain_community.utilities import PubMedAPIWrapper
 
-def save_to_txt(data: str, filename: str = "research_output.txt"):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formatted_text = f"--- Research Output ---\nTimestamp: {timestamp}\n\n{data}\n\n"
+def save_to_txt(data: str, filename_prefix: str = "research_report"):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{filename_prefix}_{timestamp}.txt"
+    report_content = f"--- Research Report ---\nTimestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n{data}"
 
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(formatted_text)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(report_content)
 
-save_tool = Tool.from_function(
-    name="save_text_to_file",
-    func=save_to_txt,
-    description="Save structured research data to a text file. The input should be a dictionary with 'data' and 'filename' keys."
-)
-
-save_tool = Tool(
-    name = "save_text_to_file",
-    func=save_to_txt,
-    description="Save structured research data to a text file"
-)
+search_tool = DuckDuckGoSearchRun()
+arxiv_tool = ArxivQueryRun()
 
 pubmed_api_wrapper = PubMedAPIWrapper(ncbi_api_key=os.getenv("NCBI_API_KEY"))
-
 pubmed_tool = Tool(
     name="pubmed_search",
     func=pubmed_api_wrapper.run,
-    description="A wrapper around PubMed. Use this for questions about medicine, biology, health, and biomedical research papers. Input should be a search query."
+    description="A wrapper around PubMed. Use for questions on medicine, biology, health, and biomedical research. Input should be a search query."
 )
 
-search_tool = DuckDuckGoSearchRun()
-
-arxiv_tool = ArxivQueryRun()
+all_tools = [search_tool, pubmed_tool, arxiv_tool]
