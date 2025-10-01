@@ -5,21 +5,21 @@
 ``` 
 python3 -m venv research_agent
 ```
-# Activate it
+### Activate it
 ```
 source /home/mpavia/01_enviorments/research_agent/bin/activate
 ```
-# Install dependencies
+### Install dependencies
 ```
 python -m pip install -r requirements.txt
 ```
-# Athena can be run with the following command :
+### Athena can be run with the following command :
 ```
 python main.py
 ```
 
 
-# test question
+### test question
 ```
 How do you detect outbreaks of Mycobacterium tuberculosis? 
 ```
@@ -30,8 +30,4 @@ How do you detect outbreaks of Mycobacterium tuberculosis?
 * add relfection step (ReflectionAgent) or CritqueAgent?
 * Convert output into a JSON format 
 * Add in text citations
-
-
-
-```
 
