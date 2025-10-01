@@ -13,5 +13,17 @@ python -m pip install -r requirements.txt
 
 #test question
 How do you detect outbreaks of Mycobacterium tuberculosis? 
+
+
+#ideas to implement
+
+* extract information from papers not just abstract (RAG pipeline)
+* human-in-the-loop for checking papers
+* add relfection step (ReflectionAgent) or CritqueAgent?
+* Convert output into a JSON format 
+* Add in text citations
+
+
+
 ```
 
