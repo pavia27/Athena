@@ -58,7 +58,7 @@ analysis_agent = create_agent(
     prompt=ChatPromptTemplate.from_messages([
         ("system", "You are a scientific analysis expert. Your role is to synthesize findings from a list of research papers."),
         ("system", "Read through the summaries of the provided papers and create a cohesive analysis."),
-        ("system", "Your analysis should highlight the key findings, methodologies, and main conclusions. Do not add new information or critique the work yet."),
+        ("system", "Your analysis should highlight the key findings, methodologies, and main conclusions. Do not add new information or critique the work."),
         ("human", "Here are the papers: {papers}"),
     ])
 )
